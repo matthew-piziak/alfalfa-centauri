@@ -1,0 +1,115 @@
+#+TITLE: Alfalfa Centauri
+
+An asteroid-oid roguelike prototype/scratchpad with a simplified model of
+special relativity.
+
+* Physics
+
+The first prototype should implement time dilation and subjectively realistic
+position, velocity, and acceleration.
+
+Only two reference frames will be supported:
+- The player's reference frame is called *Player* and is referenced by a
+  subscript p (ₚ).
+- The world's reference frame is called *Rest* and is referenced by a subscript
+  r (ᵣ). The label *Rest* evokes two aspects of this reference frame: it has
+  zero simulation velocity, and it includes all non-player entities in the
+  simulation.
+
+** Model One: True Lorentz Factor
+
+The standard Lorentz factor is the one used in special relativity, and is
+defined by γ = 1/√(1-v²/c²).
+
+*** Time dilation
+
+To simplify formulas, all velocity will be in given in fractions of c. Since
+there are only two reference frames, it will sometimes be simply referred to as
+"the velocity".
+
+Without loss of generality, we can set c equal to 1, and v in terms of
+lightspeed fraction. This gives us a somewhat simplified Lorentz factor to work
+with.
+
+γ = 1/√(1-v²)
+
+Δtᵣ = Δtₚγ
+
+#+BEGIN_SRC lua
+  function time_dilation_factor (v)
+     return 1 / sqrt(1 - v * v)
+  end
+#+END_SRC
+
+*** Time update
+
+During one simulation tick, he player's internal state should advance by one
+tick, but the rest of the world's entities should have their internal states
+update by one tick /times/ the time dilation factor.
+
+*** Subjective single-tick position update at constant velocity
+
+The player's position should update according to the velocity times the time
+dilation factor.
+
+#+BEGIN_SRC lua
+  function update_position ({x, y, v_x, v_y})
+     v = sqrt(v_x * v_x + v_y * v_y)
+     time_dilation_factor = time_dilation_factor(v)
+     return {
+        x + time_dilation_factor * v_x,
+        y + time_dilation_factor * v_y,
+        v_x,
+        v_y
+     }
+  end
+#+END_SRC
+
+*** Acceleration
+
+The engine should output a constant value in Watts in *Player*.
+
+In *Rest* this value should be multiplied by the time dilation factor.
+
+We assume that the player's engine produced a constant output of energy per
+time. Solving for the resultant relativistic velocity after one tick is
+nontrivial. [[http://physics.stackexchange.com/questions/230275/given-a-current-velocity-and-a-fixed-input-energy-how-much-faster-will-a-relati][An attempt at characterizing and solving the problem]] is cataloged at
+Physics StackExchange.
+
+
+** Model Two: Tangent Factor
+
+Since calculating the velocity updates for the true Lorentz factor is
+nontrivial, let's see how far we get with a fake Lorentz factor based on a
+tangent factor
+
+We want a function that is zero at zero, and infinity at one. A very simple
+function that meets those criteria is the following.
+
+γ = tan(x * (π / 2))
+
+The remainder of the simulation may be constructed almost analogously.
+
+*** Time Dilation
+
+#+BEGIN_SRC lua
+  function time_dilation_factor (v)
+     math.tan(v * (math.pi / 2))
+  end
+#+END_SRC
+
+*** Acceleration
+
+This one is still difficult to grasp.
+
+
+** Model Three: Simple Vertical Asymptote
+
+γ = (1 / (1 - v)) - 1
+
+*** Acceleration
+
+Given a starting velocity vₒ and an input energy Eᵢ in the direction of
+acceleration, the final velocity v₁ can be derived as follows.
+
+v₁ =  -1 * ((Eᵢ (v₀ - 1) + v₀) / (Eᵢ (v₀ - 1) + 1))
